@@ -3,10 +3,12 @@ import 'dotenv/config';
 import express from 'express';
 import { healthRouter } from './routes/health.js';
 import { redisClient } from './lib/redis.js';
+import cors from 'cors';
+
 
 const app = express();
 const PORT = process.env.PORT ?? 4000;
-
+app.use(cors({ origin: 'http://localhost:3000' }));
 app.use(healthRouter);
 
 app.get('/', (req, res) => {
