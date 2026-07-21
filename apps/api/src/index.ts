@@ -2,9 +2,10 @@
 import 'dotenv/config';
 import express from 'express';
 import { errorHandler } from './middleware/errorHandler.js';
-import { healthRouter } from './routes/health.js';
 import { redisClient } from './lib/redis.js';
 import { postsRouter } from './routes/posts.js';
+import { healthRouter } from './routes/health.js';
+import { usersRouter } from './routes/users.js';
 import cors from 'cors';
 
 
@@ -15,6 +16,7 @@ app.use(cors({ origin: 'http://localhost:3000' }));
 app.use(express.json());
 app.use(healthRouter);
 app.use(postsRouter);
+app.use(usersRouter);
 app.use(errorHandler);
 
 app.get('/', (req, res) => {

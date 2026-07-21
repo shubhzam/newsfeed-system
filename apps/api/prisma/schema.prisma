@@ -17,6 +17,8 @@ model User {
   username  String   @unique
   createdAt DateTime @default(now())
   posts     Post[]
+  following Follow[] @relation("follower")
+  followers Follow[] @relation("followee")
 }
 
 model Post {
@@ -25,4 +27,16 @@ model Post {
   author    User     @relation(fields: [authorId], references: [id])
   authorId  String
   createdAt DateTime @default(now())
+}
+
+model Follow {
+  followerId String
+  followeeId String
+  createdAt  DateTime @default(now())
+
+  follower User @relation("follower", fields: [followerId], references: [id])
+  followee User @relation("followee", fields: [followeeId], references: [id])
+
+  @@id([followerId, followeeId])
+  @@index([followeeId])
 }
