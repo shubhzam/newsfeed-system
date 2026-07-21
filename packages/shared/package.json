@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     "./post": "./src/post.ts",
-    "./follow": "./src/follow.ts"
+    "./follow": "./src/follow.ts",
+    "./feed": "./src/feed.ts"
   },
   "dependencies": {
     "zod": "^4.4.3"
