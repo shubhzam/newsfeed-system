@@ -27,6 +27,8 @@ model Post {
   author    User     @relation(fields: [authorId], references: [id])
   authorId  String
   createdAt DateTime @default(now())
+
+  @@index([authorId, createdAt])
 }
 
 model Follow {

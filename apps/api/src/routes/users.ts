@@ -1,8 +1,16 @@
 // apps/api/src/routes/users.ts
 import { Router } from 'express';
-import { prisma } from '../lib/prisma.js';
 import { createFollowSchema } from '@repo/shared/follow';
+import { feedQuerySchema } from '@repo/shared/feed';
 import { z } from 'zod';
+import * as followService from '../services/follow.service.js';
+import * as feedService from '../services/feed.service.js';
+import {
+  SelfFollowError,
+  AlreadyFollowingError,
+  NotFollowingError,
+  UserNotFoundError,
+} from '../lib/errors.js';
 
 export const usersRouter: Router = Router();
 
@@ -21,25 +29,19 @@ usersRouter.post('/api/users/:userId/following', async (req, res) => {
     return;
   }
 
-  const followerId = userIdResult.data;
-  const { followeeId } = bodyResult.data;
-
-  if (followerId === followeeId) {
-    res.status(400).json({ error: 'SelfFollow' });
-    return;
-  }
-
   try {
-    const follow = await prisma.follow.create({
-      data: { followerId, followeeId },
-    });
+    const follow = await followService.createFollow(userIdResult.data, bodyResult.data.followeeId);
     res.status(201).json(follow);
-  } catch (err: any) {
-    if (err.code === 'P2002') {
+  } catch (err) {
+    if (err instanceof SelfFollowError) {
+      res.status(400).json({ error: 'SelfFollow' });
+      return;
+    }
+    if (err instanceof AlreadyFollowingError) {
       res.status(409).json({ error: 'AlreadyFollowing' });
       return;
     }
-    if (err.code === 'P2003') {
+    if (err instanceof UserNotFoundError) {
       res.status(404).json({ error: 'UserNotFound' });
       return;
     }
@@ -52,28 +54,21 @@ usersRouter.delete('/api/users/:userId/following/:followeeId', async (req, res) 
   const followeeIdResult = z.uuid().safeParse(req.params.followeeId);
 
   if (!followerIdResult.success || !followeeIdResult.success) {
-res.status(400).json({
-  error: 'ValidationError',
-  details: [
-    ...(followerIdResult.success ? [] : followerIdResult.error.issues),
-    ...(followeeIdResult.success ? [] : followeeIdResult.error.issues),
-  ],
-  });
+    res.status(400).json({
+      error: 'ValidationError',
+      details: [
+        ...(followerIdResult.success ? [] : followerIdResult.error.issues),
+        ...(followeeIdResult.success ? [] : followeeIdResult.error.issues),
+      ],
+    });
     return;
   }
 
   try {
-    await prisma.follow.delete({
-      where: {
-        followerId_followeeId: {
-          followerId: followerIdResult.data,
-          followeeId: followeeIdResult.data,
-        },
-      },
-    });
+    await followService.deleteFollow(followerIdResult.data, followeeIdResult.data);
     res.status(204).send();
-  } catch (err: any) {
-    if (err.code === 'P2025') {
+  } catch (err) {
+    if (err instanceof NotFollowingError) {
       res.status(404).json({ error: 'NotFollowing' });
       return;
     }
@@ -89,12 +84,8 @@ usersRouter.get('/api/users/:userId/following', async (req, res) => {
     return;
   }
 
-  const follows = await prisma.follow.findMany({
-    where: { followerId: userIdResult.data },
-    include: { followee: true },
-  });
-
-  res.status(200).json(follows.map((f) => f.followee));
+  const followees = await followService.listFollowees(userIdResult.data);
+  res.status(200).json(followees);
 });
 
 usersRouter.get('/api/users/:userId/followers', async (req, res) => {
@@ -105,10 +96,33 @@ usersRouter.get('/api/users/:userId/followers', async (req, res) => {
     return;
   }
 
-  const follows = await prisma.follow.findMany({
-    where: { followeeId: userIdResult.data },
-    include: { follower: true },
-  });
+  const followers = await followService.listFollowers(userIdResult.data);
+  res.status(200).json(followers);
+});
 
-  res.status(200).json(follows.map((f) => f.follower));
+usersRouter.get('/api/users/:userId/feed', async (req, res) => {
+  const userIdResult = z.uuid().safeParse(req.params.userId);
+  const queryResult = feedQuerySchema.safeParse(req.query);
+
+  if (!userIdResult.success || !queryResult.success) {
+    res.status(400).json({
+      error: 'ValidationError',
+      details: [
+        ...(userIdResult.success ? [] : userIdResult.error.issues),
+        ...(queryResult.success ? [] : queryResult.error.issues),
+      ],
+    });
+    return;
+  }
+
+  try {
+    const feed = await feedService.getUserFeed(userIdResult.data, queryResult.data.cursor);
+    res.status(200).json(feed);
+  } catch (err) {
+    if (err instanceof UserNotFoundError) {
+      res.status(404).json({ error: 'UserNotFound' });
+      return;
+    }
+    throw err;
+  }
 });
