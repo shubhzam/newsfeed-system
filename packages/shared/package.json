@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./post": "./src/post.ts"
+    "./post": "./src/post.ts",
+    "./follow": "./src/follow.ts"
   },
   "dependencies": {
     "zod": "^4.4.3"
