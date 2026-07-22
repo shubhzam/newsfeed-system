@@ -13,12 +13,14 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(uuid())
-  username  String   @unique
-  createdAt DateTime @default(now())
-  posts     Post[]
-  following Follow[] @relation("follower")
-  followers Follow[] @relation("followee")
+  id           String   @id @default(uuid())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  posts        Post[]
+  following    Follow[] @relation("follower")
+  followers    Follow[] @relation("followee")
 }
 
 model Post {

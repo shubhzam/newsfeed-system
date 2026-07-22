@@ -6,6 +6,7 @@ import { redisClient } from './lib/redis.js';
 import { postsRouter } from './routes/posts.js';
 import { healthRouter } from './routes/health.js';
 import { usersRouter } from './routes/users.js';
+import { authRouter } from './routes/auth.js';
 import cors from 'cors';
 
 
@@ -17,6 +18,7 @@ app.use(express.json());
 app.use(healthRouter);
 app.use(postsRouter);
 app.use(usersRouter);
+app.use(authRouter);
 app.use(errorHandler);
 
 app.get('/', (req, res) => {

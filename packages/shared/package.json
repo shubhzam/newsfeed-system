@@ -6,7 +6,8 @@
   "exports": {
     "./post": "./src/post.ts",
     "./follow": "./src/follow.ts",
-    "./feed": "./src/feed.ts"
+    "./feed": "./src/feed.ts",
+    "./auth": "./src/auth.ts"
   },
   "dependencies": {
     "zod": "^4.4.3"
