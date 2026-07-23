@@ -1,5 +1,5 @@
 // apps/api/src/routes/users.ts
-import { Router } from 'express';
+import { Router, type Request } from 'express';
 import { createFollowSchema } from '@repo/shared/follow';
 import { feedQuerySchema } from '@repo/shared/feed';
 import { z } from 'zod';
@@ -11,26 +11,22 @@ import {
   NotFollowingError,
   UserNotFoundError,
 } from '../lib/errors.js';
+import { requireAuth } from '../middleware/requireAuth.js';
 
 export const usersRouter: Router = Router();
 
-usersRouter.post('/api/users/:userId/following', async (req, res) => {
-  const userIdResult = z.uuid().safeParse(req.params.userId);
+usersRouter.post('/api/following', requireAuth, async (req, res) => {
   const bodyResult = createFollowSchema.safeParse(req.body);
 
-  if (!userIdResult.success || !bodyResult.success) {
-    res.status(400).json({
-      error: 'ValidationError',
-      details: [
-        ...(userIdResult.success ? [] : userIdResult.error.issues),
-        ...(bodyResult.success ? [] : bodyResult.error.issues),
-      ],
-    });
+  if (!bodyResult.success) {
+    res.status(400).json({ error: 'ValidationError', details: bodyResult.error.issues });
     return;
   }
 
+  const auth = (req as Request & { auth: { userId: string } }).auth;
+
   try {
-    const follow = await followService.createFollow(userIdResult.data, bodyResult.data.followeeId);
+    const follow = await followService.createFollow(auth.userId, bodyResult.data.followeeId);
     res.status(201).json(follow);
   } catch (err) {
     if (err instanceof SelfFollowError) {
@@ -49,23 +45,18 @@ usersRouter.post('/api/users/:userId/following', async (req, res) => {
   }
 });
 
-usersRouter.delete('/api/users/:userId/following/:followeeId', async (req, res) => {
-  const followerIdResult = z.uuid().safeParse(req.params.userId);
+usersRouter.delete('/api/following/:followeeId', requireAuth, async (req, res) => {
   const followeeIdResult = z.uuid().safeParse(req.params.followeeId);
 
-  if (!followerIdResult.success || !followeeIdResult.success) {
-    res.status(400).json({
-      error: 'ValidationError',
-      details: [
-        ...(followerIdResult.success ? [] : followerIdResult.error.issues),
-        ...(followeeIdResult.success ? [] : followeeIdResult.error.issues),
-      ],
-    });
+  if (!followeeIdResult.success) {
+    res.status(400).json({ error: 'ValidationError', details: followeeIdResult.error.issues });
     return;
   }
 
+  const auth = (req as Request & { auth: { userId: string } }).auth;
+
   try {
-    await followService.deleteFollow(followerIdResult.data, followeeIdResult.data);
+    await followService.deleteFollow(auth.userId, followeeIdResult.data);
     res.status(204).send();
   } catch (err) {
     if (err instanceof NotFollowingError) {
@@ -76,6 +67,7 @@ usersRouter.delete('/api/users/:userId/following/:followeeId', async (req, res) 
   }
 });
 
+// unchanged, still public, no requireAuth:
 usersRouter.get('/api/users/:userId/following', async (req, res) => {
   const userIdResult = z.uuid().safeParse(req.params.userId);
 
@@ -100,29 +92,16 @@ usersRouter.get('/api/users/:userId/followers', async (req, res) => {
   res.status(200).json(followers);
 });
 
-usersRouter.get('/api/users/:userId/feed', async (req, res) => {
-  const userIdResult = z.uuid().safeParse(req.params.userId);
+usersRouter.get('/api/feed', requireAuth, async (req, res) => {
   const queryResult = feedQuerySchema.safeParse(req.query);
 
-  if (!userIdResult.success || !queryResult.success) {
-    res.status(400).json({
-      error: 'ValidationError',
-      details: [
-        ...(userIdResult.success ? [] : userIdResult.error.issues),
-        ...(queryResult.success ? [] : queryResult.error.issues),
-      ],
-    });
+  if (!queryResult.success) {
+    res.status(400).json({ error: 'ValidationError', details: queryResult.error.issues });
     return;
   }
 
-  try {
-    const feed = await feedService.getUserFeed(userIdResult.data, queryResult.data.cursor);
-    res.status(200).json(feed);
-  } catch (err) {
-    if (err instanceof UserNotFoundError) {
-      res.status(404).json({ error: 'UserNotFound' });
-      return;
-    }
-    throw err;
-  }
+  const auth = (req as Request & { auth: { userId: string } }).auth;
+
+  const feed = await feedService.getUserFeed(auth.userId, queryResult.data.cursor);
+  res.status(200).json(feed);
 });

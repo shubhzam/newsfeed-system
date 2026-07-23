@@ -1,9 +1,8 @@
 // apps/api/src/services/post.service.ts
 import { prisma } from '../lib/prisma.js';
-import type { CreatePostInput } from '@repo/shared/post';
 import { AuthorNotFoundError, PostNotFoundError } from '../lib/errors.js';
 
-export async function createPost(data: CreatePostInput) {
+export async function createPost(data: { authorId: string; content: string }) {
   try {
     return await prisma.post.create({ data });
   } catch (err: any) {
