@@ -3,6 +3,8 @@ import 'dotenv/config';
 import express from 'express';
 import { errorHandler } from './middleware/errorHandler.js';
 import { redisClient } from './lib/redis.js';
+import { kafkaProducer } from './lib/kafka.js';
+import { startFanoutConsumer } from './services/fanout.service.js';
 import { postsRouter } from './routes/posts.js';
 import { healthRouter } from './routes/health.js';
 import { usersRouter } from './routes/users.js';
@@ -27,6 +29,8 @@ app.get('/', (req, res) => {
 
 async function start() {
   await redisClient.connect();
+  await kafkaProducer.connect();
+  await startFanoutConsumer();
   app.listen(PORT, () => {
     console.log(`api listening on http://localhost:${PORT}`);
   });
