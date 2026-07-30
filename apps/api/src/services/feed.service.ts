@@ -37,12 +37,8 @@ async function backfillFeed(userId: string, key: string) {
   });
   const followeeIds = follows.map((f) => f.followeeId);
 
-  if (followeeIds.length === 0) {
-    return 0;
-  }
-
   const posts = await prisma.post.findMany({
-    where: { authorId: { in: followeeIds } },
+    where: { OR: [{ authorId: { in: followeeIds } }, { authorId: userId }] },
     orderBy: { createdAt: 'desc' },
     take: FEED_LIST_CAP,
     select: { id: true },

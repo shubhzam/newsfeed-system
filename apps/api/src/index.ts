@@ -21,16 +21,25 @@ app.use(healthRouter);
 app.use(postsRouter);
 app.use(usersRouter);
 app.use(authRouter);
-app.use(errorHandler);
 
 app.get('/', (req, res) => {
   res.json({ status: 'api is running' });
 });
 
+app.use(errorHandler);
+
 async function start() {
   await redisClient.connect();
-  await kafkaProducer.connect();
-  await startFanoutConsumer();
+
+  try {
+    await kafkaProducer.connect();
+    await startFanoutConsumer();
+  } catch (err) {
+    console.error(
+      `kafka unavailable at startup - post creation will work but fan-out will not run until kafka is reachable and the server is restarted: ${(err as Error).message}`,
+    );
+  }
+
   app.listen(PORT, () => {
     console.log(`api listening on http://localhost:${PORT}`);
   });
