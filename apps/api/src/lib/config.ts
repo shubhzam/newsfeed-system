@@ -11,3 +11,8 @@ export class OutboxConfig {
   static readonly BATCH_SIZE = 20;
   static readonly MAX_ATTEMPTS = 5;
 }
+
+export class DlqConfig {
+  static readonly MAX_CONSUMER_RETRIES = 3;
+  static readonly RETRY_DELAY_MS = 500;
+}

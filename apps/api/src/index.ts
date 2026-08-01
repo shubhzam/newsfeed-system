@@ -3,6 +3,7 @@ import 'dotenv/config';
 import express from 'express';
 import { errorHandler } from './middleware/errorHandler.js';
 import { redisClient } from './lib/redis.js';
+import { kafkaProducer } from './lib/kafka.js';
 import { startFanoutConsumer } from './services/fanout.service.js';
 import { postsRouter } from './routes/posts.js';
 import { healthRouter } from './routes/health.js';
@@ -31,10 +32,14 @@ async function start() {
   await redisClient.connect();
 
   try {
+    // producer is needed here now for a different reason than before - the
+    // fanout consumer publishes to posts-dlq on exhausted retries, not for
+    // post creation (post.service.ts hasn't touched kafka since the outbox feature)
+    await kafkaProducer.connect();
     await startFanoutConsumer();
   } catch (err) {
     console.error(
-      `kafka unavailable at startup - fan-out consumer will not run until kafka is reachable and the server is restarted. post creation is unaffected either way - it only writes to postgres now: ${(err as Error).message}`,
+      `kafka unavailable at startup - fan-out consumer will not run, and dlq publishing won't work either, until kafka is reachable and the server is restarted. post creation is unaffected either way - it only writes to postgres now: ${(err as Error).message}`,
     );
   }
 
