@@ -2,6 +2,7 @@
 import { prisma } from '../lib/prisma.js';
 import { redisClient } from '../lib/redis.js';
 import { UserNotFoundError } from '../lib/errors.js';
+import { FeedConfig } from '../lib/config.js';
 
 const FEED_PAGE_SIZE = 20;
 const FEED_LIST_CAP = 500;
@@ -23,13 +24,52 @@ export async function getUserFeed(userId: string, cursor: string | undefined) {
 
   const postIds = await redisClient.lRange(key, start, end);
   const posts = await hydratePosts(postIds);
+  const mergedPosts = await mergeCelebrityPosts(userId, posts);
   const nextCursor = end + 1 < listLength ? String(end + 1) : null;
 
-  return { posts, nextCursor };
+  return { posts: mergedPosts, nextCursor };
 }
 
-// Cold-start bridge: reuses the original fanout-on-read query so a feed list
-// that predates this feature (or a brand-new user) still gets a correct result.
+async function mergeCelebrityPosts(
+  userId: string,
+  pushPosts: Awaited<ReturnType<typeof hydratePosts>>,
+) {
+  try {
+    const celebrityFollowees = await prisma.follow.findMany({
+      where: {
+        followerId: userId,
+        followee: { followerCount: { gte: FeedConfig.CELEBRITY_THRESHOLD } },
+      },
+      select: { followeeId: true },
+    });
+
+    if (celebrityFollowees.length === 0) {
+      return pushPosts;
+    }
+
+    const celebrityPostArrays = await Promise.all(
+      celebrityFollowees.map((f) =>
+        prisma.post.findMany({
+          where: { authorId: f.followeeId },
+          orderBy: { createdAt: 'desc' },
+          take: FeedConfig.CELEBRITY_PULL_LIMIT,
+          include: { author: { select: { id: true, username: true } } },
+        }),
+      ),
+    );
+
+    const existingIds = new Set(pushPosts.map((p) => p.id));
+    const newCelebrityPosts = celebrityPostArrays.flat().filter((p) => !existingIds.has(p.id));
+
+    return [...pushPosts, ...newCelebrityPosts]
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, FEED_PAGE_SIZE);
+  } catch (err) {
+    console.error(`celebrity pull failed for user ${userId}: ${(err as Error).message}`);
+    return pushPosts;
+  }
+}
+
 async function backfillFeed(userId: string, key: string) {
   const follows = await prisma.follow.findMany({
     where: { followerId: userId },

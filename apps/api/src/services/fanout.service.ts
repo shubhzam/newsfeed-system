@@ -2,6 +2,7 @@
 import { prisma } from '../lib/prisma.js';
 import { redisClient } from '../lib/redis.js';
 import { kafka } from '../lib/kafka.js';
+import { FeedConfig } from '../lib/config.js';
 
 const FEED_LIST_CAP = 500;
 const PROCESSED_GUARD_TTL_SECONDS = 300;
@@ -22,12 +23,21 @@ export async function handlePostCreated(event: PostCreatedEvent) {
     return;
   }
 
-  const followers = await prisma.follow.findMany({
-    where: { followeeId: event.authorId },
-    select: { followerId: true },
+  // celebrity check happens before the follower lookup at all - no point querying
+  // every follower row just to throw the list away
+  const author = await prisma.user.findUnique({
+    where: { id: event.authorId },
+    select: { followerCount: true },
   });
+  const isCelebrity = (author?.followerCount ?? 0) >= FeedConfig.CELEBRITY_THRESHOLD;
 
-  const recipientIds = [...followers.map((f) => f.followerId), event.authorId];
+  // self-inclusion is unconditional - it's a single write regardless of follower
+  // count, so it was never part of the scaling problem this branch exists to fix
+  const recipientIds = isCelebrity
+    ? [event.authorId]
+    : await prisma.follow
+        .findMany({ where: { followeeId: event.authorId }, select: { followerId: true } })
+        .then((followers) => [...followers.map((f) => f.followerId), event.authorId]);
 
   for (const recipientId of recipientIds) {
     const key = `feed:user:${recipientId}`;
