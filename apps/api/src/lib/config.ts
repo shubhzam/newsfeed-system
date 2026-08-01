@@ -5,3 +5,9 @@ export class FeedConfig {
   // posts pulled per celebrity followee at feed read time, matches page size
   static readonly CELEBRITY_PULL_LIMIT = 20;
 }
+
+export class OutboxConfig {
+  static readonly POLL_INTERVAL_MS = 2000;
+  static readonly BATCH_SIZE = 20;
+  static readonly MAX_ATTEMPTS = 5;
+}

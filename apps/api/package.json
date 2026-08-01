@@ -5,7 +5,8 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts"
+    "dev": "tsx watch src/index.ts",
+    "worker:outbox": "tsx watch src/workers/outbox-poller.ts"
   },
   "keywords": [],
   "author": "",

@@ -3,7 +3,6 @@ import 'dotenv/config';
 import express from 'express';
 import { errorHandler } from './middleware/errorHandler.js';
 import { redisClient } from './lib/redis.js';
-import { kafkaProducer } from './lib/kafka.js';
 import { startFanoutConsumer } from './services/fanout.service.js';
 import { postsRouter } from './routes/posts.js';
 import { healthRouter } from './routes/health.js';
@@ -32,11 +31,10 @@ async function start() {
   await redisClient.connect();
 
   try {
-    await kafkaProducer.connect();
     await startFanoutConsumer();
   } catch (err) {
     console.error(
-      `kafka unavailable at startup - post creation will work but fan-out will not run until kafka is reachable and the server is restarted: ${(err as Error).message}`,
+      `kafka unavailable at startup - fan-out consumer will not run until kafka is reachable and the server is restarted. post creation is unaffected either way - it only writes to postgres now: ${(err as Error).message}`,
     );
   }
 
