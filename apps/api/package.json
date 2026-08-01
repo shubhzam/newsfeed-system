@@ -6,7 +6,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "worker:outbox": "tsx watch src/workers/outbox-poller.ts"
+    "worker:outbox": "tsx watch src/workers/outbox-poller.ts",
+    "worker:fanout": "tsx watch src/workers/fanout-worker.ts"
   },
   "keywords": [],
   "author": "",
