@@ -2,13 +2,28 @@
 'use client';
 
 import { useGetHealthQuery } from '../lib/healthApi';
+import { useAppDispatch } from '../lib/hooks';
+import { useRequireAuth } from '../lib/useRequireAuth';
+import { logout } from '../lib/authSlice';
 
 export default function HealthPage() {
   const { data, error, isLoading } = useGetHealthQuery();
+  const dispatch = useAppDispatch();
+  const { isAuthenticated, user } = useRequireAuth();
+
+  if (!isAuthenticated) {
+    return null;
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 p-8">
       <h1 className="text-2xl font-semibold">newsfeed system</h1>
+      <div className="flex items-center gap-3 text-sm text-gray-600">
+        <span>logged in as {user?.username}</span>
+        <button onClick={() => dispatch(logout())} className="underline">
+          log out
+        </button>
+      </div>``
 
       {isLoading && <p className="text-gray-500">checking backend health...</p>}
 

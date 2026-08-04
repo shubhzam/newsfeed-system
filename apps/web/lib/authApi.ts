@@ -32,9 +32,14 @@ const baseQueryWithReauth: BaseQueryFn<string | FetchArgs, unknown, FetchBaseQue
   api,
   extraOptions,
 ) => {
+  // capture this *before* the call - a 401 only means "your session expired"
+  // if there was a session (a token) to begin with. login/signup never send
+  // a token, so a 401 from them is just a normal rejected-credentials response,
+  // not an expiry event.
+  const hadToken = Boolean((api.getState() as RootState).auth.token);
   const result = await rawBaseQuery(args, api, extraOptions);
 
-  if (result.error?.status === 401) {
+  if (hadToken && result.error?.status === 401) {
     api.dispatch(logout());
     if (typeof window !== 'undefined') {
       window.location.assign('/login');
