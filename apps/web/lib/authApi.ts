@@ -57,16 +57,24 @@ export const authApi = createApi({
       query: (body) => ({ url: '/api/auth/signup', method: 'POST', body }),
       transformResponse: (raw) => authResponseSchema.parse(raw),
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
-        const { data } = await queryFulfilled;
-        dispatch(setSession(data));
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(setSession(data));
+        } catch {
+          // signup failed - already surfaced via the mutation's own error state in the component
+        }
       },
     }),
     login: builder.mutation<AuthResponse, LoginInput>({
       query: (body) => ({ url: '/api/auth/login', method: 'POST', body }),
       transformResponse: (raw) => authResponseSchema.parse(raw),
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
-        const { data } = await queryFulfilled;
-        dispatch(setSession(data));
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(setSession(data));
+        } catch {
+          // login failed - already surfaced via the mutation's own error state in the component
+        }
       },
     }),
     me: builder.query<User, void>({

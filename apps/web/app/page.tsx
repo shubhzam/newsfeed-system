@@ -1,6 +1,6 @@
 // apps/web/app/page.tsx
 'use client';
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { createPostSchema } from '@repo/shared/post';
 import { useCreatePostMutation } from '../lib/postApi';
 import { getApiErrorMessage } from '../lib/apiError';
@@ -8,6 +8,8 @@ import { useGetHealthQuery } from '../lib/healthApi';
 import { useAppDispatch } from '../lib/hooks';
 import { useRequireAuth } from '../lib/useRequireAuth';
 import { logout } from '../lib/authSlice';
+import type { FeedPost } from '@repo/shared/feed';
+import { useLazyGetFeedQuery } from '../lib/feedApi';
 
 export default function HealthPage() {
   const { data, error, isLoading } = useGetHealthQuery();
@@ -40,6 +42,39 @@ export default function HealthPage() {
   }
 
   const postApiErrorMessage = getApiErrorMessage(postError);
+
+  const [triggerGetFeed, { isFetching: isFeedLoading, error: feedError }] = useLazyGetFeedQuery();
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [feedLoaded, setFeedLoaded] = useState(false);
+
+  useEffect(() => {
+    async function loadInitialFeed() {
+      try {
+        const result = await triggerGetFeed(undefined).unwrap();
+        setPosts(result.posts);
+        setNextCursor(result.nextCursor);
+      } catch {
+        // error surfaced via feedApiErrorMessage below
+      } finally {
+        setFeedLoaded(true);
+      }
+    }
+    loadInitialFeed();
+  }, [triggerGetFeed]);
+
+  async function handleLoadMore() {
+    if (!nextCursor) return;
+    try {
+      const result = await triggerGetFeed(nextCursor).unwrap();
+      setPosts((prev) => [...prev, ...result.posts]);
+      setNextCursor(result.nextCursor);
+    } catch {
+      // error surfaced via feedApiErrorMessage below
+    }
+  }
+
+  const feedApiErrorMessage = getApiErrorMessage(feedError);
 
   if (!isAuthenticated) {
     return null;
@@ -85,6 +120,40 @@ export default function HealthPage() {
           {isPosting ? 'posting...' : 'post'}
         </button>
       </form>
+
+      <section className="flex w-full max-w-sm flex-col gap-3">
+        {feedApiErrorMessage && (
+          <p className="rounded border border-red-500 bg-red-50 p-3 text-sm text-red-700">
+            {feedApiErrorMessage}
+          </p>
+        )}
+
+        {!feedLoaded && !feedApiErrorMessage && (
+          <p className="text-sm text-gray-500">loading feed...</p>
+        )}
+
+        {feedLoaded && posts.length === 0 && !feedApiErrorMessage && (
+          <p className="text-sm text-gray-500">no posts yet.</p>
+        )}
+
+        {posts.map((post) => (
+          <div key={post.id} className="rounded border border-gray-200 p-3">
+            <p className="text-sm font-medium">{post.author.username}</p>
+            <p className="text-sm">{post.content}</p>
+            <p className="text-xs text-gray-400">{post.createdAt}</p>
+          </div>
+        ))}
+
+        {nextCursor && (
+          <button
+            onClick={handleLoadMore}
+            disabled={isFeedLoading}
+            className="rounded border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
+          >
+            {isFeedLoading ? 'loading...' : 'load more'}
+          </button>
+        )}
+      </section>
 
       {isLoading && <p className="text-gray-500">checking backend health...</p>}
 

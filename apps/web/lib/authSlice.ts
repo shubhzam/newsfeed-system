@@ -10,7 +10,7 @@ type AuthState = {
   token: string | null;
 };
 
-function loadStoredSession(): StoredSession | null {
+export function loadStoredSession(): StoredSession | null {
   if (typeof window === 'undefined') return null;
 
   const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -23,11 +23,9 @@ function loadStoredSession(): StoredSession | null {
   }
 }
 
-const stored = loadStoredSession();
-
 const initialState: AuthState = {
-  user: stored?.user ?? null,
-  token: stored?.token ?? null,
+  user: null,
+  token: null,
 };
 
 const authSlice = createSlice({
